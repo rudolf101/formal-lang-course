@@ -7,21 +7,18 @@ __all__ = [
     "load_graph",
     "save_graph_dot",
     "get_graph_info",
-    "build_labeled_two_cycles_graph",
+    "get_graph_info_by_name",
+    "build_then_save_labeled_two_cycles_graph",
 ]
 
 
 class Graph(NamedTuple):
     """Class that stores general information about graph.
 
-    Attributes
-    ----------
-    nodes: int
-        Count of nodes in graph
-    edges: int
-        Count of edges in graph
-    labels: Set[str]
-        Set of labels on edges
+    Attributes:
+        nodes (int): Count of nodes in graph.
+        edges (int): Count of edges in graph.
+        labels (Set[str]): Set of labels on edges
     """
 
     nodes: int
@@ -32,7 +29,11 @@ class Graph(NamedTuple):
 def load_graph(graph_name: str) -> MultiDiGraph:
     """Loads a graph from CFPQ_Data dataset.
 
-    :param graph_name: name of the graph to be loaded from the dataset
+    Args:
+        graph_name (str): Name of the graph to be loaded from the dataset.
+
+    Returns:
+        Class loaded from csv file
     """
     path = cfpq_data.download(graph_name)
     return cfpq_data.graph_from_csv(path)
@@ -41,8 +42,12 @@ def load_graph(graph_name: str) -> MultiDiGraph:
 def save_graph_dot(cur_graph: MultiDiGraph, file: Union[IO, str]) -> None:
     """Saves the given graph in DOT format to file
 
-    :param cur_graph: graph to be saved
-    :param file: path or file
+    Args:
+        cur_graph (MultiDiGraph): Graph to be saved
+        file (Union[IO, str]): path or file where graph should be saved
+
+    Returns:
+        None
     """
     drawing.nx_pydot.write_dot(cur_graph, file)
 
@@ -50,8 +55,11 @@ def save_graph_dot(cur_graph: MultiDiGraph, file: Union[IO, str]) -> None:
 def get_graph_info(cur_graph: MultiDiGraph) -> Graph:
     """Get general information about graph.
 
-    :param cur_graph: graph to view
-    :return: class with information about graph
+    Args:
+        cur_graph (MultiDiGraph): Graph to view
+
+    Returns:
+        Class with information about graph
     """
     return Graph(
         cur_graph.number_of_nodes(),
@@ -60,16 +68,36 @@ def get_graph_info(cur_graph: MultiDiGraph) -> Graph:
     )
 
 
-def build_labeled_two_cycles_graph(
+def get_graph_info_by_name(graph_name: str) -> Graph:
+    """Get graph info from by name in CFPQ_Data dataset.
+
+    Args:
+        graph_name (str): Name of the graph to get info
+
+    Returns:
+        Class with information about graph
+    """
+    return get_graph_info(load_graph(graph_name))
+
+
+def build_then_save_labeled_two_cycles_graph(
     nodes_first_cycle: int,
     nodes_second_cycle: int,
     labels: Tuple[str, str],
-) -> MultiDiGraph:
+    file: Union[IO, str],
+) -> None:
     """Builds labeled graph with two cycles.
 
-    :param nodes_first_cycle: number of nodes in first cycle
-    :param nodes_second_cycle: number of nodes in second cycle
-    :param labels: labels for edges"""
-    return cfpq_data.labeled_two_cycles_graph(
+    Args:
+        nodes_first_cycle (int): number of nodes in first cycle
+        nodes_second_cycle (int): number of nodes in second cycle
+        labels (Tuple[str, str]): labels for edges
+        file (Union[IO, str]): path or file where graph should be saved
+
+    Returns:
+        None
+    """
+    graph_to_save = cfpq_data.labeled_two_cycles_graph(
         nodes_first_cycle, nodes_second_cycle, labels=labels
     )
+    save_graph_dot(graph_to_save, file)
