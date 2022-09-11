@@ -28,8 +28,8 @@ def save_graph_dot(cur_graph: MultiDiGraph, file: Union[IO, str]) -> None:
 
 def get_graph_info(cur_graph: MultiDiGraph) -> Graph:
     return Graph(
-        cur_graph.nodes(),
-        cur_graph.edges(),
+        cur_graph.number_of_nodes(),
+        cur_graph.number_of_edges(),
         set(label for u, v, label in cur_graph.edges(data="label") if label),
     )
 
