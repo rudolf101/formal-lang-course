@@ -3,7 +3,7 @@ import os.path
 
 from project import save_graph_dot, load_graph
 
-test_resources_path = os.path.abspath("resources")
+test_resources_path = os.path.abspath("../tests/resources")
 actual_file_path = os.sep.join([test_resources_path, "actual_graph_save.dot"])
 reference_file_path = os.sep.join([test_resources_path, "reference_graph_save.dot"])
 
