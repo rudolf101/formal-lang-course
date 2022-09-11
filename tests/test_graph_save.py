@@ -3,9 +3,11 @@ import os.path
 
 from project import save_graph_dot, load_graph
 
-test_resources_path = os.path.abspath("../tests/resources")
-actual_file_path = os.sep.join([test_resources_path, "actual_graph_save.dot"])
-reference_file_path = os.sep.join([test_resources_path, "reference_graph_save.dot"])
+test_dir_path = os.path.dirname(os.path.abspath(__file__))
+actual_file_path = os.sep.join([test_dir_path, "resources", "actual_graph.dot"])
+reference_file_path = os.sep.join(
+    [test_dir_path, "resources", "reference_graph_save.dot"]
+)
 
 
 def test_graph_save_dot():
