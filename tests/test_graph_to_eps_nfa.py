@@ -1,8 +1,4 @@
-from networkx import MultiDiGraph, is_isomorphic
-from networkx.algorithms.isomorphism import (
-    categorical_node_match,
-    categorical_multiedge_match,
-)
+from networkx import MultiDiGraph
 from pyformlang.finite_automaton import EpsilonNFA, Symbol, Epsilon, State
 
 from project.automata_utils import *
