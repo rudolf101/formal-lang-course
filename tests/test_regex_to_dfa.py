@@ -2,6 +2,7 @@ import pytest
 from pyformlang.finite_automaton import DeterministicFiniteAutomaton
 from pyformlang.finite_automaton import State
 from pyformlang.finite_automaton import Symbol
+from pyformlang.regular_expression import Regex
 
 from project import generate_min_dfa_by_regex
 
@@ -18,21 +19,17 @@ def test_generated_dfa_is_deterministic(min_dfa):
 def test_generate_min_dfa(min_dfa):
     exp_dfa = DeterministicFiniteAutomaton()
 
-    state0 = State(0)
-    state1 = State(1)
-    state2 = State(2)
+    exp_dfa.add_start_state(State(0))
+    exp_dfa.add_final_state(State(0))
+    exp_dfa.add_final_state(State(1))
+    exp_dfa.add_final_state(State(2))
 
-    exp_dfa.add_start_state(state0)
-    exp_dfa.add_final_state(state0)
-    exp_dfa.add_final_state(state1)
-    exp_dfa.add_final_state(state2)
-
-    exp_dfa.add_transition(state0, Symbol("a"), state0)
-    exp_dfa.add_transition(state0, Symbol("b"), state1)
-    exp_dfa.add_transition(state0, Symbol("c"), state2)
-    exp_dfa.add_transition(state1, Symbol("b"), state1)
-    exp_dfa.add_transition(state1, Symbol("c"), state2)
-    exp_dfa.add_transition(state2, Symbol("c"), state2)
+    exp_dfa.add_transition(State(0), Symbol("a"), State(0))
+    exp_dfa.add_transition(State(0), Symbol("b"), State(1))
+    exp_dfa.add_transition(State(0), Symbol("c"), State(2))
+    exp_dfa.add_transition(State(1), Symbol("b"), State(1))
+    exp_dfa.add_transition(State(1), Symbol("c"), State(2))
+    exp_dfa.add_transition(State(2), Symbol("c"), State(2))
 
     assert min_dfa.is_equivalent_to(exp_dfa) and len(min_dfa.states) == len(
         exp_dfa.states
@@ -77,8 +74,8 @@ def test_generate_min_dfa(min_dfa):
         ),
     ],
 )
-def test_regex_to_dfa_accepting_words(regex, accepted, declined) -> None:
-    dfa = generate_min_dfa_by_regex(regex)
+def test_regex_to_dfa(regex, accepted, declined) -> None:
+    dfa = generate_min_dfa_by_regex(Regex(regex))
 
     assert all(dfa.accepts(word) for word in accepted)
     assert all(not dfa.accepts(word) for word in declined)
