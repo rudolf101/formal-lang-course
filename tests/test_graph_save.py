@@ -6,7 +6,7 @@ from project import save_graph_dot, load_graph, build_then_save_labeled_two_cycl
 test_dir_path = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_graph_save_dot():
+def test_save_graph_dot():
     actual_file_path = os.sep.join([test_dir_path, "resources", "actual_graph.dot"])
     reference_file_path = os.sep.join(
         [test_dir_path, "resources", "reference_graph_save.dot"]
@@ -17,7 +17,7 @@ def test_graph_save_dot():
     os.remove(actual_file_path)
 
 
-def test_build_labeled_two_cycles_graph():
+def test_build_then_save_labeled_two_cycles_graph():
     actual_file_path = os.sep.join(
         [test_dir_path, "resources", "actual_labeled_two_cycles_graph.dot"]
     )
