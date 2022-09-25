@@ -1,6 +1,7 @@
+from typing import NamedTuple, Set, Tuple, Union, IO
+
 import cfpq_data
 from networkx import *
-from typing import NamedTuple, Set, Tuple, Union, IO
 
 __all__ = [
     "Graph",
@@ -8,6 +9,7 @@ __all__ = [
     "save_graph_dot",
     "get_graph_info",
     "get_graph_info_by_name",
+    "build_labeled_two_cycles_graph",
     "build_then_save_labeled_two_cycles_graph",
 ]
 
@@ -80,13 +82,33 @@ def get_graph_info_by_name(graph_name: str) -> Graph:
     return get_graph_info(load_graph(graph_name))
 
 
+def build_labeled_two_cycles_graph(
+    nodes_first_cycle: int,
+    nodes_second_cycle: int,
+    labels: Tuple[str, str],
+) -> MultiDiGraph:
+    """Builds labeled graph with two cycles.
+
+    Args:
+        nodes_first_cycle (int): number of nodes in first cycle
+        nodes_second_cycle (int): number of nodes in second cycle
+        labels (Tuple[str, str]): labels for edges
+
+    Returns:
+        Labeled two cycles graph as MultiDiGraph
+    """
+    return cfpq_data.labeled_two_cycles_graph(
+        nodes_first_cycle, nodes_second_cycle, labels=labels
+    )
+
+
 def build_then_save_labeled_two_cycles_graph(
     nodes_first_cycle: int,
     nodes_second_cycle: int,
     labels: Tuple[str, str],
     file: Union[IO, str],
 ) -> None:
-    """Builds labeled graph with two cycles.
+    """Builds and save labeled graph with two cycles.
 
     Args:
         nodes_first_cycle (int): number of nodes in first cycle
@@ -97,7 +119,7 @@ def build_then_save_labeled_two_cycles_graph(
     Returns:
         None
     """
-    graph_to_save = cfpq_data.labeled_two_cycles_graph(
-        nodes_first_cycle, nodes_second_cycle, labels=labels
+    graph_to_save = build_labeled_two_cycles_graph(
+        nodes_first_cycle, nodes_second_cycle, labels
     )
     save_graph_dot(graph_to_save, file)
