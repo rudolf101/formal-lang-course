@@ -5,6 +5,8 @@ from pyformlang.regular_expression import Regex
 
 from project import matrices_utils, automata_utils
 
+__all__ = ["rpq"]
+
 
 def rpq(
     graph: nx.MultiDiGraph,
