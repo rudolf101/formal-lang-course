@@ -3,7 +3,7 @@ from typing import Set, Tuple, Any, Union
 import networkx as nx
 from pyformlang.regular_expression import Regex
 
-from project import matrices_utils, automata_utils
+from project import boolean_matrix, automata_utils
 
 __all__ = ["rpq"]
 
@@ -25,10 +25,10 @@ def rpq(
     Returns:
          The set of pairs where the node in second place is reachable from the node in first place via a given query
     """
-    query_boolean_matrix = matrices_utils.BooleanMatrix.from_nfa(
+    query_boolean_matrix = boolean_matrix.BooleanMatrix.from_nfa(
         automata_utils.generate_min_dfa_by_regex(query)
     )
-    intersection_bool_matrix = matrices_utils.BooleanMatrix.from_nfa(
+    intersection_bool_matrix = boolean_matrix.BooleanMatrix.from_nfa(
         automata_utils.graph_to_epsilon_nfa(graph, start_nodes, final_nodes)
     ).intersect(query_boolean_matrix)
     start_states = intersection_bool_matrix.get_start_states()
