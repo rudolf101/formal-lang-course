@@ -1,3 +1,5 @@
+from typing import Set, Union
+
 from networkx import MultiDiGraph
 from pyformlang.finite_automaton import (
     DeterministicFiniteAutomaton,
@@ -6,8 +8,7 @@ from pyformlang.finite_automaton import (
     Epsilon,
     Symbol,
 )
-from pyformlang.regular_expression import Regex
-from typing import Set, Union
+from pyformlang.regular_expression import Regex, PythonRegex
 
 __all__ = ["generate_min_dfa_by_regex", "graph_to_epsilon_nfa"]
 
@@ -21,7 +22,7 @@ def generate_min_dfa_by_regex(regex: Union[Regex, str]) -> DeterministicFiniteAu
     Returns:
         Generated deterministic automata
     """
-    regex = Regex(regex) if type(regex) is str else regex
+    regex = PythonRegex(regex) if type(regex) is str else regex
     dfa = regex.to_epsilon_nfa().to_deterministic()
     return dfa.minimize()
 
