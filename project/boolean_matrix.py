@@ -1,11 +1,9 @@
-from typing import Set, Any, Dict
-
 from pyformlang.finite_automaton import State, EpsilonNFA
 from scipy import sparse
+from scipy.sparse import dok_matrix, bmat, csr_matrix, lil_array, vstack
+from typing import Dict, Set, Any, List
 
 __all__ = ["BooleanMatrix"]
-
-from scipy.sparse import dok_matrix
 
 
 class BooleanMatrix:
@@ -151,3 +149,187 @@ class BooleanMatrix:
                     boolean_matrix[label][index_from, index_to] = True
 
         return boolean_matrix
+
+    def _direct_sum(self, other: "BooleanMatrix") -> "BooleanMatrix":
+        """Direct sum of automatons
+
+        Args:
+            other(BooleanMatrix): The matrix with which sum will be calculated
+
+        Returns:
+            Direct sum
+        """
+        shifted_state_to_idx = {}
+        for state, idx in other.states_indices.items():
+            shifted_state_to_idx[state] = len(self.states_indices) + idx
+
+        states_indices = {**self.states_indices, **shifted_state_to_idx}
+        start_states, final_states = (
+            self.start_states | other.start_states,
+            self.final_states | other.final_states,
+        )
+
+        bool_matrices = {}
+        for label in self.bool_matrices.keys() & other.bool_matrices.keys():
+            bool_matrices[label] = bmat(
+                [[self.bool_matrices[label], None], [None, other.bool_matrices[label]]]
+            )
+
+        direct_sum = BooleanMatrix()
+        direct_sum.states_count = len(states_indices)
+        direct_sum.states_indices = states_indices
+        direct_sum.start_states = start_states
+        direct_sum.final_states = final_states
+        direct_sum.bool_matrices = bool_matrices
+        return direct_sum
+
+    def sync_bfs(
+        self,
+        other: "BooleanMatrix",
+        reachable_per_node: bool,
+    ) -> Set[Any]:
+        """Executes sync bfs on two automatons represented by boolean matrices
+
+        Args:
+            other(BooleanMatrix): BooleanMatrix with which bfs will be executed
+            reachable_per_node(bool): Reachability for each node separately or not
+
+        Returns:
+            If reachable_per_node is false - set of reachable nodes, otherwise set of tuples (start_node, final_node)
+        """
+
+        if not self.states_indices or not other.states_indices:
+            return set()
+
+        other_states_num = len(other.states_indices)
+        start_states_ordered = list(self.start_states)
+        direct_sum = other._direct_sum(self)
+
+        init_front = self._init_sync_bfs_front(
+            other,
+            reachable_per_node,
+            start_states_ordered,
+        )
+        front = init_front
+
+        visited = front.copy()
+        while True:
+            visited_nnz = visited.nnz
+            new_front = front.copy()
+
+            for _, matrix in direct_sum.bool_matrices.items():
+                product: csr_matrix = front @ matrix
+                new_front_step = lil_array(product.shape)
+                for i, j in zip(*product.nonzero()):
+                    if j >= other_states_num:
+                        continue
+                    row = product.getrow(i).tolil()[[0], other_states_num:]
+                    if not row.nnz:
+                        continue
+                    row_shift = i // other_states_num * other_states_num
+                    new_front_step[row_shift + j, j] = 1
+                    new_front_step[[row_shift + j], other_states_num:] += row
+                new_front += new_front_step.tocsr()
+
+            for i, j in zip(*new_front.nonzero()):
+                if visited[i, j]:
+                    new_front[i, j] = 0
+
+            visited += new_front
+            front = new_front
+
+            if visited_nnz == visited.nnz:
+                break
+
+        self_index_to_state = {idx: state for state, idx in self.states_indices.items()}
+        other_index_to_state = {
+            idx: state for state, idx in other.states_indices.items()
+        }
+
+        result = set()
+        nonzero = set(zip(*visited.nonzero())).difference(
+            set(zip(*init_front.nonzero()))
+        )
+        for i, j in nonzero:
+            if (
+                other_index_to_state[i % other_states_num] not in other.final_states
+                or j < other_states_num
+            ):
+                continue
+            self_state = self_index_to_state[j - other_states_num]
+            if self_state not in self.final_states:
+                continue
+            result.add(
+                self_state.value
+                if not reachable_per_node
+                else (
+                    start_states_ordered[i // other_states_num].value,
+                    self_state.value,
+                )
+            )
+        return result
+
+    def _init_sync_bfs_front(
+        self,
+        other: "BooleanMatrix",
+        reachable_per_node: bool,
+        ordered_start_states: List[State],
+    ) -> csr_matrix:
+        """Front for sync bfs
+
+        Args:
+            other(BooleanMatrix): BooleanMatrix with which bfs will be executed
+            reachable_per_node(bool): Reachability for each node separately or not
+            ordered_start_states(List[State]): List of start states
+        Returns:
+            Initial front for sync bfs
+        """
+
+        def front_with_self_start(self_start_row: lil_array):
+            front = lil_array(
+                (
+                    len(other.states_indices),
+                    len(self.states_indices) + len(other.states_indices),
+                )
+            )
+            for state in other.start_states:
+                idx = other.states_indices[state]
+                front[idx, idx] = 1
+                front[idx, len(other.states_indices) :] = self_start_row
+            return front
+
+        if not reachable_per_node:
+            start_indices = set(
+                self.states_indices[state] for state in ordered_start_states
+            )
+            return front_with_self_start(
+                lil_array(
+                    [
+                        1 if index in start_indices else 0
+                        for index in range(len(self.states_indices))
+                    ]
+                )
+            ).tocsr()
+
+        fronts = [
+            front_with_self_start(
+                lil_array(
+                    [
+                        1 if idx == self.states_indices[start] else 0
+                        for idx in range(len(self.states_indices))
+                    ]
+                )
+            )
+            for start in ordered_start_states
+        ]
+
+        return (
+            csr_matrix(vstack(fronts))
+            if fronts
+            else csr_matrix(
+                (
+                    len(other.states_indices),
+                    len(self.states_indices) + len(other.states_indices),
+                )
+            )
+        )

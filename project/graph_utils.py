@@ -1,7 +1,6 @@
-from typing import NamedTuple, Set, Tuple, Union, IO
-
 import cfpq_data
 from networkx import *
+from typing import NamedTuple, Set, Tuple, Union, IO
 
 __all__ = [
     "Graph",

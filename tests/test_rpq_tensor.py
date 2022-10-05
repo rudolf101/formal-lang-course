@@ -1,9 +1,7 @@
-from itertools import product
-
 import pytest
+from itertools import product
 from pyformlang.regular_expression import PythonRegex
-
-from project import rpq
+from project import rpq_tensor
 from project.graph_utils import build_labeled_two_cycles_graph
 
 
@@ -13,7 +11,7 @@ def graph():
 
 
 def test_all_nodes_start_and_final(graph):
-    actual_rpq = rpq(graph, PythonRegex("a*|b"))
+    actual_rpq = rpq_tensor(graph, PythonRegex("a*|b"))
     res = set(product(range(4), range(4)))
 
     assert actual_rpq == res.union({(0, 4), (4, 5), (5, 0)})
@@ -28,6 +26,6 @@ def test_all_nodes_start_and_final(graph):
     ],
 )
 def test_querying(graph, pattern, start_nodes, final_nodes, expected_rpq):
-    actual_rpq = rpq(graph, pattern, start_nodes, final_nodes)
+    actual_rpq = rpq_tensor(graph, pattern, start_nodes, final_nodes)
 
     assert actual_rpq == expected_rpq

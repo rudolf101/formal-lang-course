@@ -1,5 +1,3 @@
-from typing import Set, Union
-
 from networkx import MultiDiGraph
 from pyformlang.finite_automaton import (
     DeterministicFiniteAutomaton,
@@ -9,6 +7,7 @@ from pyformlang.finite_automaton import (
     Symbol,
 )
 from pyformlang.regular_expression import Regex, PythonRegex
+from typing import Set, Union
 
 __all__ = ["generate_min_dfa_by_regex", "graph_to_epsilon_nfa"]
 
