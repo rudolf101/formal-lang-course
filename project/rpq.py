@@ -45,8 +45,8 @@ def rpq_tensor(
     for state_from_idx, state_to_idx in zip(*transitive_closure.nonzero()):
         state_from, state_to = idx_to_state[state_from_idx], idx_to_state[state_to_idx]
         if (
-                state_from in intersection_bool_mtx.start_states
-                and state_to in intersection_bool_mtx.final_states
+            state_from in intersection_bool_mtx.start_states
+            and state_to in intersection_bool_mtx.final_states
         ):
             state_from_graph_value, _ = state_from.value
             state_to_graph_value, _ = state_to.value
@@ -87,17 +87,17 @@ def rpq_bfs(
     Returns:
         If mode is FIND_ALL_REACHABLE -- set of reachable nodes, otherwise -- set of tuples (start_node, final_node)
     """
-    nfa_bool_mtx = boolean_matrix.BooleanMatrix.from_nfa(
+    nfa_bool_matrix = boolean_matrix.BooleanMatrix.from_nfa(
         automata_utils.graph_to_epsilon_nfa(
             graph,
             start_states,
             final_states,
         )
     )
-    query_bool_mtx = boolean_matrix.BooleanMatrix.from_nfa(
+    query_bool_matrix = boolean_matrix.BooleanMatrix.from_nfa(
         automata_utils.generate_min_dfa_by_regex(query),
     )
-    return nfa_bool_mtx.sync_bfs(
-        query_bool_mtx,
+    return nfa_bool_matrix.sync_bfs(
+        query_bool_matrix,
         mode == RpqMode.FIND_REACHABLE_FOR_EACH_START_NODE,
     )

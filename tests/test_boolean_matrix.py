@@ -2,7 +2,8 @@ import pytest
 from pyformlang.finite_automaton import (
     DeterministicFiniteAutomaton,
     State,
-    EpsilonNFA, Symbol,
+    EpsilonNFA,
+    Symbol,
 )
 
 from project import BooleanMatrix
@@ -46,8 +47,12 @@ def test_transitive_closure_empty():
 def test_transitive_closure(nfa):
     bm = BooleanMatrix.from_nfa(nfa)
     tc = bm.get_transitive_closure()
-    assert [[33.0, 84.0, 60.0, 44.0], [44.0, 117.0, 84.0, 60.0], [16.0, 44.0, 33.0, 24.0],
-            [24.0, 60.0, 44.0, 33.0]] == tc.toarray().tolist()
+    assert [
+        [33.0, 84.0, 60.0, 44.0],
+        [44.0, 117.0, 84.0, 60.0],
+        [16.0, 44.0, 33.0, 24.0],
+        [24.0, 60.0, 44.0, 33.0],
+    ] == tc.toarray().tolist()
 
 
 @pytest.mark.parametrize(
@@ -94,14 +99,31 @@ def test_intersection(nfa):
     expected_nfa.add_transitions([(0, "a", 1), (1, "b", 1)])
     expected_nfa.add_start_state(State(0))
     expected_nfa.add_final_state(State(1))
-    intersection = (first_boolean_matrix & second_boolean_matrix)
+    intersection = first_boolean_matrix & second_boolean_matrix
     assert all(
         (
             intersection.start_states == {(1, 0), (2, 0), (3, 0), (0, 0)},
-            intersection.final_states == {(0, 1), (2, 1), (1, 1), (0, 3), (2, 3), (1, 3)},
-            intersection.state_to_index == {(0, 0): 0, (0, 1): 1, (0, 2): 2, (0, 3): 3, (1, 0): 4, (1, 1): 5, (1, 2): 6,
-                                            (1, 3): 7, (2, 0): 8, (2, 1): 9, (2, 2): 10, (2, 3): 11, (3, 0): 12,
-                                            (3, 1): 13, (3, 2): 14, (3, 3): 15},
+            intersection.final_states
+            == {(0, 1), (2, 1), (1, 1), (0, 3), (2, 3), (1, 3)},
+            intersection.state_to_index
+            == {
+                (0, 0): 0,
+                (0, 1): 1,
+                (0, 2): 2,
+                (0, 3): 3,
+                (1, 0): 4,
+                (1, 1): 5,
+                (1, 2): 6,
+                (1, 3): 7,
+                (2, 0): 8,
+                (2, 1): 9,
+                (2, 2): 10,
+                (2, 3): 11,
+                (3, 0): 12,
+                (3, 1): 13,
+                (3, 2): 14,
+                (3, 3): 15,
+            },
         )
     )
 
@@ -118,9 +140,9 @@ def non_empty_nfa():
 
 
 def test_intersection_with_non_empty_automaton_matrix(non_empty_nfa):
-    intersection = BooleanMatrix.from_nfa(
+    intersection = BooleanMatrix.from_nfa(non_empty_nfa) & BooleanMatrix.from_nfa(
         non_empty_nfa
-    ) & BooleanMatrix.from_nfa(non_empty_nfa)
+    )
     for label, values in intersection.bool_matrices.items():
         print(label, values.toarray().tolist())
     assert all(
