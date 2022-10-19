@@ -29,15 +29,11 @@ class BooleanMatrix:
         self.bool_matrices = bool_matrices
 
     def __and__(self, other: "BooleanMatrix") -> "BooleanMatrix":
-        """Calculates intersection of two automatons represented by bool matrices
-        Parameters
-        ----------
-        other : BoolMatrixAutomaton
-            The automaton with which intersection will be calculated
-        Returns
-        -------
-        intersection : BoolMatrixAutomaton
-            Intersection of two automatons represented by bool matrix
+        """Intersection of two automatons represented by boolean matrices
+        Args:
+            other(BooleanMatrix): The automaton with which intersection will be calculated
+        Returns:
+            Intersection of two automatons represented by boolean matrix
         """
         inter_labels = self.bool_matrices.keys() & other.bool_matrices.keys()
         inter_bool_matrices = {
