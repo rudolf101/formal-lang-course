@@ -26,27 +26,34 @@ def rpq_tensor(
     Returns:
          The set of pairs where the node in second place is reachable from the node in first place via a given query
     """
-    query_boolean_matrix = boolean_matrix.BooleanMatrix.from_nfa(
-        automata_utils.generate_min_dfa_by_regex(query)
+    nfa_bool_mtx = boolean_matrix.BooleanMatrix.from_nfa(
+        automata_utils.graph_to_epsilon_nfa(
+            graph=graph,
+            start_states=start_nodes,
+            final_states=final_nodes,
+        )
     )
-    intersection_bool_matrix = boolean_matrix.BooleanMatrix.from_nfa(
-        automata_utils.graph_to_epsilon_nfa(graph, start_nodes, final_nodes)
-    ).intersect(query_boolean_matrix)
-    start_states = intersection_bool_matrix.get_start_states()
-    final_states = intersection_bool_matrix.get_final_states()
-    transitive_closure = intersection_bool_matrix.get_transitive_closure()
-    res = set()
-
-    for state_from, state_to in zip(*transitive_closure.nonzero()):
-        if state_from in start_states and state_to in final_states:
-            res.add(
-                (
-                    state_from // query_boolean_matrix.states_count,
-                    state_to // query_boolean_matrix.states_count,
-                )
+    query_bool_mtx = boolean_matrix.BooleanMatrix.from_nfa(
+        automata_utils.generate_min_dfa_by_regex(regex=query),
+    )
+    intersection_bool_mtx = nfa_bool_mtx & query_bool_mtx
+    idx_to_state = {
+        idx: state for state, idx in intersection_bool_mtx.state_to_index.items()
+    }
+    transitive_closure = intersection_bool_mtx.get_transitive_closure()
+    result = set()
+    for state_from_idx, state_to_idx in zip(*transitive_closure.nonzero()):
+        state_from, state_to = idx_to_state[state_from_idx], idx_to_state[state_to_idx]
+        if (
+                state_from in intersection_bool_mtx.start_states
+                and state_to in intersection_bool_mtx.final_states
+        ):
+            state_from_graph_value, _ = state_from.value
+            state_to_graph_value, _ = state_to.value
+            result.add(
+                (state_from_graph_value, state_to_graph_value),
             )
-
-    return res
+    return result
 
 
 class RpqMode(enum.Enum):
