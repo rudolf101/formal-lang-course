@@ -25,7 +25,6 @@ def test_build_then_save_labeled_two_cycles_graph():
     reference_file_path = os.sep.join(
         [test_dir_path, "resources", "reference_labeled_two_cycles_graph.dot"]
     )
-
     build_then_save_labeled_two_cycles_graph(21, 22, ("y", "a"), actual_file_path)
     assert filecmp.cmp(actual_file_path, reference_file_path)
     os.remove(actual_file_path)
