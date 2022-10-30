@@ -1,11 +1,12 @@
 from collections import defaultdict
 from functools import reduce
-from typing import Union, IO
+from typing import Union, IO, List
 
-import ECFG as ECFG
 from pyformlang.cfg import CFG, Variable
+from pyformlang.cfg.cfg_object import CFGObject
 from pyformlang.regular_expression import Regex
-from project import RSM
+from project.rsm import RSM
+from project.ecfg import ECFG
 
 __all__ = [
     "cfg_to_weak_chomsky_normal_form",
