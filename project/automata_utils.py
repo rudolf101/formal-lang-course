@@ -22,7 +22,7 @@ def generate_min_dfa_by_regex(regex: Union[Regex, str]) -> DeterministicFiniteAu
         Generated deterministic automata
     """
     regex = PythonRegex(regex) if type(regex) is str else regex
-    dfa = regex.to_epsilon_nfa().to_deterministic()
+    dfa = regex.to_epsilon_nfa()
     return dfa.minimize()
 
 
@@ -42,6 +42,7 @@ def graph_to_epsilon_nfa(
         Epsilon NFA
     """
     epsilon_nfa = EpsilonNFA()
+    all_nodes = set(graph.nodes)
     for node_from, node_to, edge_data in graph.edges(data=True):
         epsilon_nfa.add_transition(
             State(node_from),
@@ -50,9 +51,9 @@ def graph_to_epsilon_nfa(
         )
 
     if start_states is None:
-        start_states = set(graph.nodes)
+        start_states = all_nodes
     if final_states is None:
-        final_states = set(graph.nodes)
+        final_states = all_nodes
 
     for state in map(State, start_states):
         epsilon_nfa.add_start_state(state)

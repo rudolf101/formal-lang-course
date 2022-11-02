@@ -1,7 +1,7 @@
-from pyformlang.finite_automaton import State, EpsilonNFA
-from scipy import sparse
-from scipy.sparse import dok_matrix, bmat, csr_matrix, lil_array, vstack
 from typing import Dict, Set, Any, List
+
+from pyformlang.finite_automaton import State, EpsilonNFA
+from scipy.sparse import dok_matrix, bmat, csr_matrix, lil_array, vstack, kron
 
 __all__ = ["BooleanMatrix"]
 
@@ -10,19 +10,60 @@ class BooleanMatrix:
     """Class representing boolean adjacency matrices of NFA
 
     Attributes:
-        states_count(int): Count of states
-        states_indices(Dict[State, int]): Dictionary of states to indices in boolean matrix
+        state_to_index(Dict[State, int]): Dictionary of states to indices in boolean matrix
         start_states(Set[State]): NFA start states
         final_states(Set[State]): NFA final states
         bool_matrices(Dict[Any, dok_matrix]): Mapping each edge label to boolean adjacency matrix
     """
 
-    def __init__(self):
-        self.states_count = 0
-        self.states_indices = dict()
-        self.start_states = set()
-        self.final_states = set()
-        self.bool_matrices = dict()
+    def __init__(
+        self,
+        state_to_index: Dict[State, int],
+        start_states: Set[State],
+        final_states: Set[State],
+        bool_matrices: Dict[Any, dok_matrix],
+    ):
+        self.state_to_index = state_to_index
+        self.start_states = start_states
+        self.final_states = final_states
+        self.bool_matrices = bool_matrices
+
+    def __and__(self, other: "BooleanMatrix") -> "BooleanMatrix":
+        """Intersection of two automatons represented by boolean matrices
+        Args:
+            other(BooleanMatrix): The automaton with which intersection will be calculated
+        Returns:
+            Intersection of two automatons represented by boolean matrix
+        """
+        inter_labels = self.bool_matrices.keys() & other.bool_matrices.keys()
+        inter_bool_matrices = {
+            label: kron(self.bool_matrices[label], other.bool_matrices[label])
+            for label in inter_labels
+        }
+        inter_states_indices = dict()
+        inter_start_states = set()
+        inter_final_states = set()
+        for self_state, self_idx in self.state_to_index.items():
+            for other_state, other_idx in other.state_to_index.items():
+                state = State((self_state.value, other_state.value))
+                idx = self_idx * len(other.state_to_index) + other_idx
+                inter_states_indices[state] = idx
+                if (
+                    self_state in self.start_states
+                    and other_state in other.start_states
+                ):
+                    inter_start_states.add(state)
+                if (
+                    self_state in self.final_states
+                    and other_state in other.final_states
+                ):
+                    inter_final_states.add(state)
+        return BooleanMatrix(
+            inter_states_indices,
+            inter_start_states,
+            inter_final_states,
+            inter_bool_matrices,
+        )
 
     def to_nfa(self) -> EpsilonNFA:
         """Converts boolean adjacency matrices of NFA to epsilon nfa
@@ -32,12 +73,15 @@ class BooleanMatrix:
         """
         nfa = EpsilonNFA()
         for label, matrix in self.bool_matrices.items():
-            for state_from, state_to in zip(*matrix.nonzero()):
-                nfa.add_transition(state_from, label, state_to)
+            matrix_as_array = dok_matrix.toarray()
+            for state_from, i in self.state_to_index.items():
+                for state_to, j in self.state_to_index.items():
+                    if matrix_as_array[i][j]:
+                        nfa.add_transitions([(state_from, label, state_to)])
 
-        for state in map(State, self.start_states):
+        for state in self.start_states:
             nfa.add_start_state(state)
-        for state in map(State, self.final_states):
+        for state in self.final_states:
             nfa.add_final_state(state)
 
         return nfa
@@ -54,54 +98,21 @@ class BooleanMatrix:
         Returns:
             Transitive closure represented by sparse matrix
         """
-        transitive_closure = sum(self.bool_matrices.values())
+        transitive_closure = sum(
+            self.bool_matrices.values(),
+            start=dok_matrix((len(self.state_to_index), len(self.state_to_index))),
+        )
         cur_nnz = transitive_closure.nnz
         prev_nnz = None
+
+        if not cur_nnz:
+            return transitive_closure
 
         while prev_nnz != cur_nnz:
             transitive_closure += transitive_closure @ transitive_closure
             prev_nnz, cur_nnz = cur_nnz, transitive_closure.nnz
 
         return transitive_closure
-
-    def intersect(self, other: "BooleanMatrix") -> "BooleanMatrix":
-        """Calculates intersection of self boolean matrix with other
-
-        Args:
-            other(BooleanMatrix): The automaton with which intersection needs to calculate
-
-        Returns:
-            Intersection of two automatons as boolean matrix
-        """
-        boolean_matrix_result = BooleanMatrix()
-        boolean_matrix_result.states_count = self.states_count * other.states_count
-        inter_labels = self.bool_matrices.keys() & other.bool_matrices.keys()
-
-        boolean_matrix_result.bool_matrices = {
-            label: sparse.kron(self.bool_matrices[label], other.bool_matrices[label])
-            for label in inter_labels
-        }
-
-        for self_state, self_index in self.states_indices.items():
-            for other_state, other_index in other.states_indices.items():
-                new_state = new_state_idx = (
-                    self_index * other.states_count + other_index
-                )
-                boolean_matrix_result.states_indices[new_state] = new_state_idx
-
-                if (
-                    self_state in self.start_states
-                    and other_state in other.start_states
-                ):
-                    boolean_matrix_result.start_states.add(new_state)
-
-                if (
-                    self_state in self.final_states
-                    and other_state in other.final_states
-                ):
-                    boolean_matrix_result.final_states.add(new_state)
-
-        return boolean_matrix_result
 
     @classmethod
     def from_nfa(cls, nfa: EpsilonNFA) -> "BooleanMatrix":
@@ -113,19 +124,20 @@ class BooleanMatrix:
         Returns:
             Representation of automaton as boolean matrix
         """
-        boolean_matrix = cls()
-        boolean_matrix.states_count = len(nfa.states)
-        boolean_matrix.states_indices = {
-            state: idx for idx, state in enumerate(nfa.states)
-        }
-        boolean_matrix.start_states = nfa.start_states
-        boolean_matrix.final_states = nfa.final_states
-        boolean_matrix.bool_matrices = boolean_matrix._create_boolean_matrix_from_nfa(
-            nfa
+        state_to_index = {state: index for index, state in enumerate(nfa.states)}
+        return cls(
+            state_to_index=state_to_index,
+            start_states=nfa.start_states.copy(),
+            final_states=nfa.final_states.copy(),
+            bool_matrices=cls._create_boolean_matrix_from_nfa(
+                nfa=nfa, state_to_index=state_to_index
+            ),
         )
-        return boolean_matrix
 
-    def _create_boolean_matrix_from_nfa(self, nfa: EpsilonNFA) -> Dict[Any, dok_matrix]:
+    @staticmethod
+    def _create_boolean_matrix_from_nfa(
+        nfa: EpsilonNFA, state_to_index: Dict[State, int]
+    ) -> Dict[Any, dok_matrix]:
         """Creating mapping from labels to adj boolean matrix
 
         Args:
@@ -134,21 +146,18 @@ class BooleanMatrix:
         Returns:
             Mapping from states to indexes in boolean matrix
         """
-        boolean_matrix = {}
-        for state_from, transition in nfa.to_dict().items():
-            for label, states_to in transition.items():
+        boolean_matrices = dict()
+        state_from_to_transition = nfa.to_dict()
+        for label in nfa.symbols:
+            dok_mtx = dok_matrix((len(nfa.states), len(nfa.states)), dtype=bool)
+            for state_from, transitions in state_from_to_transition.items():
+                states_to = transitions.get(label, set())
                 if not isinstance(states_to, set):
                     states_to = {states_to}
                 for state_to in states_to:
-                    index_from = self.states_indices[state_from]
-                    index_to = self.states_indices[state_to]
-                    if label not in boolean_matrix:
-                        boolean_matrix[label] = sparse.dok_matrix(
-                            (self.states_count, self.states_count), dtype=bool
-                        )
-                    boolean_matrix[label][index_from, index_to] = True
-
-        return boolean_matrix
+                    dok_mtx[state_to_index[state_from], state_to_index[state_to]] = True
+            boolean_matrices[label] = dok_mtx
+        return boolean_matrices
 
     def _direct_sum(self, other: "BooleanMatrix") -> "BooleanMatrix":
         """Direct sum of automatons
@@ -159,11 +168,11 @@ class BooleanMatrix:
         Returns:
             Direct sum
         """
-        shifted_state_to_idx = {}
-        for state, idx in other.states_indices.items():
-            shifted_state_to_idx[state] = len(self.states_indices) + idx
+        shifted_states_indices = {}
+        for state, idx in other.state_to_index.items():
+            shifted_states_indices[state] = len(self.state_to_index) + idx
 
-        states_indices = {**self.states_indices, **shifted_state_to_idx}
+        states_indices = {**self.state_to_index, **shifted_states_indices}
         start_states, final_states = (
             self.start_states | other.start_states,
             self.final_states | other.final_states,
@@ -175,13 +184,12 @@ class BooleanMatrix:
                 [[self.bool_matrices[label], None], [None, other.bool_matrices[label]]]
             )
 
-        direct_sum = BooleanMatrix()
-        direct_sum.states_count = len(states_indices)
-        direct_sum.states_indices = states_indices
-        direct_sum.start_states = start_states
-        direct_sum.final_states = final_states
-        direct_sum.bool_matrices = bool_matrices
-        return direct_sum
+        return BooleanMatrix(
+            states_indices,
+            start_states,
+            final_states,
+            bool_matrices,
+        )
 
     def sync_bfs(
         self,
@@ -198,10 +206,10 @@ class BooleanMatrix:
             If reachable_per_node is false - set of reachable nodes, otherwise set of tuples (start_node, final_node)
         """
 
-        if not self.states_indices or not other.states_indices:
+        if not self.state_to_index or not other.state_to_index:
             return set()
 
-        other_states_num = len(other.states_indices)
+        other_states_num = len(other.state_to_index)
         start_states_ordered = list(self.start_states)
         direct_sum = other._direct_sum(self)
 
@@ -241,9 +249,9 @@ class BooleanMatrix:
             if visited_nnz == visited.nnz:
                 break
 
-        self_index_to_state = {idx: state for state, idx in self.states_indices.items()}
+        self_index_to_state = {idx: state for state, idx in self.state_to_index.items()}
         other_index_to_state = {
-            idx: state for state, idx in other.states_indices.items()
+            idx: state for state, idx in other.state_to_index.items()
         }
 
         result = set()
@@ -288,25 +296,25 @@ class BooleanMatrix:
         def front_with_self_start(self_start_row: lil_array):
             front = lil_array(
                 (
-                    len(other.states_indices),
-                    len(self.states_indices) + len(other.states_indices),
+                    len(other.state_to_index),
+                    len(self.state_to_index) + len(other.state_to_index),
                 )
             )
             for state in other.start_states:
-                idx = other.states_indices[state]
+                idx = other.state_to_index[state]
                 front[idx, idx] = 1
-                front[idx, len(other.states_indices) :] = self_start_row
+                front[idx, len(other.state_to_index) :] = self_start_row
             return front
 
         if not reachable_per_node:
             start_indices = set(
-                self.states_indices[state] for state in ordered_start_states
+                self.state_to_index[state] for state in ordered_start_states
             )
             return front_with_self_start(
                 lil_array(
                     [
                         1 if index in start_indices else 0
-                        for index in range(len(self.states_indices))
+                        for index in range(len(self.state_to_index))
                     ]
                 )
             ).tocsr()
@@ -315,8 +323,8 @@ class BooleanMatrix:
             front_with_self_start(
                 lil_array(
                     [
-                        1 if idx == self.states_indices[start] else 0
-                        for idx in range(len(self.states_indices))
+                        1 if idx == self.state_to_index[start] else 0
+                        for idx in range(len(self.state_to_index))
                     ]
                 )
             )
@@ -328,8 +336,8 @@ class BooleanMatrix:
             if fronts
             else csr_matrix(
                 (
-                    len(other.states_indices),
-                    len(self.states_indices) + len(other.states_indices),
+                    len(other.state_to_index),
+                    len(self.state_to_index) + len(other.state_to_index),
                 )
             )
         )
