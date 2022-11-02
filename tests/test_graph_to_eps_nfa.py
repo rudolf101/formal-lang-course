@@ -2,6 +2,7 @@ from networkx import MultiDiGraph
 from pyformlang.finite_automaton import EpsilonNFA, Symbol, Epsilon, State
 
 from project.automata_utils import *
+from tests.utils import check_automatons_equivalent
 
 
 def test_empty_graph_to_epsilon_nfa():
@@ -39,4 +40,4 @@ def test_graph_to_epsilon_nfa():
     expected_epsilon_nfa.add_start_state(State(0))
     expected_epsilon_nfa.add_final_state(State(4))
 
-    assert epsilon_nfa.is_equivalent_to(expected_epsilon_nfa)
+    assert check_automatons_equivalent(epsilon_nfa, expected_epsilon_nfa)
