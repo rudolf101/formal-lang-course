@@ -4,6 +4,8 @@ from networkx.algorithms.isomorphism import (
     categorical_multiedge_match,
 )
 
+__all__ = ["check_automatons_equivalent"]
+
 
 def check_automatons_equivalent(first_automaton, second_automaton) -> bool:
     """Check if automatons are equivalent
