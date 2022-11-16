@@ -14,3 +14,5 @@ from project.ecfg import *
 from project.graph_utils import *
 from project.rpq import *
 from project.rsm import *
+import project.cfpq
+from project.cfpq import *
