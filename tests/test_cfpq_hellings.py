@@ -43,12 +43,4 @@ from project.cfpq import *
     ],
 )
 def test_cfpq(text_cfg, graph, pairs):
-    assert (
-        cfpq(
-            graph=graph,
-            cfg=CFG.from_text(text_cfg),
-            start_nodes=None,
-            final_nodes=None,
-        )
-        == pairs
-    )
+    assert cfpq(CFPQAlgorithm.HELLINGS, graph, CFG.from_text(text_cfg)) == pairs
