@@ -1,7 +1,10 @@
+from collections import defaultdict
 from typing import Dict, Set, Any, List
 
 from pyformlang.finite_automaton import State, EpsilonNFA
 from scipy.sparse import dok_matrix, bmat, csr_matrix, lil_array, vstack, kron
+
+from project.rsm import RSM
 
 __all__ = ["BooleanMatrix"]
 
@@ -134,6 +137,44 @@ class BooleanMatrix:
             ),
         )
 
+    @classmethod
+    def from_rsm(cls, rsm: RSM) -> "BooleanMatrix":
+        """Builds bool matrix from RSM
+
+        Args:
+            rsm(RSM): RSM to be converted to bool matrix
+        Returns:
+            Bool matrix representation of RSM
+        """
+        states, start_states, final_states = set(), set(), set()
+        for nonterm, dfa in rsm.boxes.items():
+            for s in dfa.states:
+                state = State((nonterm, s.value))
+                states.add(state)
+                if s in dfa.start_states:
+                    start_states.add(state)
+                if s in dfa.final_states:
+                    final_states.add(state)
+        states = sorted(states, key=lambda s: s.value)
+        state_to_idx = {s: i for i, s in enumerate(states)}
+        b_mtx = defaultdict(lambda: dok_matrix((len(states), len(states)), dtype=bool))
+        for nonterm, dfa in rsm.boxes.items():
+            for state_from, transitions in dfa.to_dict().items():
+                for label, states_to in transitions.items():
+                    mtx = b_mtx[label.value]
+                    states_to = states_to if isinstance(states_to, set) else {states_to}
+                    for state_to in states_to:
+                        mtx[
+                            state_to_idx[State((nonterm, state_from.value))],
+                            state_to_idx[State((nonterm, state_to.value))],
+                        ] = True
+        return cls(
+            state_to_idx,
+            start_states,
+            final_states,
+            b_mtx,
+        )
+
     @staticmethod
     def _create_boolean_matrix_from_nfa(
         nfa: EpsilonNFA, state_to_index: Dict[State, int]
@@ -146,7 +187,9 @@ class BooleanMatrix:
         Returns:
             Mapping from states to indexes in boolean matrix
         """
-        boolean_matrices = dict()
+        boolean_matrices = defaultdict(
+            lambda: dok_matrix((len(nfa.states), len(nfa.states)), dtype=bool)
+        )
         state_from_to_transition = nfa.to_dict()
         for label in nfa.symbols:
             dok_mtx = dok_matrix((len(nfa.states), len(nfa.states)), dtype=bool)
