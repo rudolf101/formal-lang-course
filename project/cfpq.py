@@ -4,9 +4,12 @@ from typing import Union, Set, Any, Tuple, Collection, Dict
 
 from networkx import MultiDiGraph
 from pyformlang.cfg import CFG, Variable, Terminal, Production
-from scipy.sparse import dok_matrix
+from pyformlang.finite_automaton import EpsilonNFA
+from scipy.sparse import dok_matrix, eye
 
+from project.boolean_matrix import BooleanMatrix
 from project.cfg_utils import get_cfg_from_file, cfg_to_weak_chomsky_normal_form
+from project.ecfg import ECFG
 from project.graph_utils import load_graph
 
 __all__ = ["cfpq", "CFPQAlgorithm"]
@@ -18,10 +21,13 @@ class CFPQAlgorithm(Enum):
     Attributes:
         HELLINGS: Hellings algorithm
         MATRIX: Matrix algorithm
+        TENSOR: Tensor algorithm
+
     """
 
     HELLINGS = auto()
     MATRIX = auto()
+    TENSOR = auto()
 
 
 def cfpq(
@@ -56,11 +62,18 @@ def cfpq(
     if not final_nodes:
         final_nodes = graph.nodes
 
+    for node, data in graph.nodes(data=True):
+        if node in start_nodes:
+            data["is_start"] = True
+        if node in final_nodes:
+            data["is_final"] = True
+
     return {
         (i, j)
         for (i, n, j) in {
             CFPQAlgorithm.HELLINGS: _run_hellings_algorithm,
             CFPQAlgorithm.MATRIX: _run_matrix_algorithm,
+            CFPQAlgorithm.TENSOR: _run_tensor_algorithm,
         }[algorithm](cfg, graph)
         if start_symbol == n and i in start_nodes and j in final_nodes
     }
@@ -169,6 +182,52 @@ def _run_matrix_algorithm(
         for nonterm, mtx in nonterm_to_mtx.items()
         for i, j in zip(*mtx.nonzero())
     )
+
+
+def _run_tensor_algorithm(
+    cfg: CFG, graph: MultiDiGraph
+) -> Set[Tuple[Any, Variable, Any]]:
+    """Runs Tensor algorithm on given CFG and graph
+
+    Args:
+        cfg(CFG): Context-free grammar
+        graph(MultiDiGraph): Graph
+    Returns:
+        Triples of vertices with specified constraints and a non-terminal from path is derived
+    """
+    cfg_bool_matrix = BooleanMatrix.from_rsm(ECFG.from_cfg(cfg).to_rsm())
+    cfg_index_to_state = {i: s for s, i in cfg_bool_matrix.state_to_index.items()}
+    graph_bool_matrix = BooleanMatrix.from_nfa(EpsilonNFA.from_networkx(graph))
+    graph_bool_matrix_states = len(graph_bool_matrix.state_to_index)
+    graph_index_to_state = {i: s for s, i in graph_bool_matrix.state_to_index.items()}
+    self_loop_matrix = eye(len(graph_bool_matrix.state_to_index), dtype=bool).todok()
+    for nonterm in cfg.get_nullable_symbols():
+        graph_bool_matrix.bool_matrices[nonterm.value] += self_loop_matrix
+    last_tc_sz = 0
+    while True:
+        intersection = cfg_bool_matrix & graph_bool_matrix
+        tc_indices = list(zip(*intersection.get_transitive_closure().nonzero()))
+        if len(tc_indices) == last_tc_sz:
+            break
+        last_tc_sz = len(tc_indices)
+        for i, j in tc_indices:
+            cfg_i, cfg_j = i // graph_bool_matrix_states, j // graph_bool_matrix_states
+            graph_i, graph_j = (
+                i % graph_bool_matrix_states,
+                j % graph_bool_matrix_states,
+            )
+            state_from, state_to = cfg_index_to_state[cfg_i], cfg_index_to_state[cfg_j]
+            nonterm, _ = state_from.value
+            if (
+                state_from in cfg_bool_matrix.start_states
+                and state_to in cfg_bool_matrix.final_states
+            ):
+                graph_bool_matrix.bool_matrices[nonterm][graph_i, graph_j] = True
+    return {
+        (graph_index_to_state[graph_i], nonterm, graph_index_to_state[graph_j])
+        for nonterm, mtx in graph_bool_matrix.bool_matrices.items()
+        for graph_i, graph_j in zip(*mtx.nonzero())
+    }
 
 
 def _convert_wcnf_prods(
