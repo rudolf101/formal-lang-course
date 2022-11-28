@@ -1,7 +1,12 @@
-from typing import NamedTuple, Dict, AbstractSet
+from collections import defaultdict
+from functools import reduce
+from typing import NamedTuple, Dict, AbstractSet, List
 
-from pyformlang.cfg import Variable
+from pyformlang.cfg import Variable, CFG
+from pyformlang.cfg.cfg_object import CFGObject
 from pyformlang.regular_expression import Regex
+
+from project.rsm import RSM
 
 __all__ = [
     "ECFG",
@@ -46,4 +51,54 @@ class ECFG(NamedTuple):
             start_symbol=start_symbol,
             variables=variables,
             productions=prods,
+        )
+
+    @classmethod
+    def from_cfg(cls, cfg: CFG) -> "ECFG":
+        """Converts CFG to ECFG
+
+        Args:
+            cfg(CFG): Context free grammar to be converted
+        Returns:
+            Extended context free grammar
+        """
+        productions = defaultdict(list)
+        for p in cfg.productions:
+            productions[p.head].append(p.body)
+        return cls(
+            cfg.start_symbol,
+            cfg.variables,
+            {
+                h: reduce(Regex.union, map(cls.concat_body, bodies))
+                for h, bodies in productions.items()
+            },
+        )
+
+    def to_rsm(self) -> RSM:
+        """Converts ECFG to RSM
+
+        Returns:
+            Recursive state machine
+        """
+        return RSM(
+            self.start_symbol,
+            {
+                h: r.to_epsilon_nfa().to_deterministic()
+                for h, r in self.productions.items()
+            },
+        )
+
+    @staticmethod
+    def concat_body(body: List[CFGObject]) -> Regex:
+        """Utility function for converting body of CFG production to regex
+
+        Args:
+            body(List[CFGObject]): Body of CFG production
+        Returns:
+            Regular expression
+        """
+        return (
+            reduce(Regex.concatenate, [Regex(o.value) for o in body])
+            if body
+            else Regex("$")
         )
