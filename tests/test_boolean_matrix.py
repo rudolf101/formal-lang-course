@@ -1,4 +1,5 @@
 import pytest
+from pyformlang.cfg import CFG
 from pyformlang.finite_automaton import (
     DeterministicFiniteAutomaton,
     State,
@@ -6,7 +7,8 @@ from pyformlang.finite_automaton import (
     Symbol,
 )
 
-from project import BooleanMatrix
+from project.boolean_matrix import BooleanMatrix
+from project.ecfg import ECFG
 
 
 @pytest.fixture
@@ -168,5 +170,61 @@ def test_intersection_with_non_empty_automaton_matrix(non_empty_nfa):
                 [False, False, False, True],
             ]
             == intersection.bool_matrices["c"].toarray().tolist(),
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "text_cfg, expected_start, expected_final, expected_b",
+    [
+        (
+            """
+                S -> a
+                """,
+            {0},
+            {1},
+            {"a": [[False, True], [False, False]]},
+        ),
+        (
+            """
+                S ->
+                S -> a S b
+                """,
+            {0},
+            {0, 1},
+            {
+                "a": [
+                    [False, False, False, True],
+                    [False, False, False, False],
+                    [False, False, False, False],
+                    [False, False, False, False],
+                ],
+                "S": [
+                    [False, False, False, False],
+                    [False, False, False, False],
+                    [False, False, False, False],
+                    [False, False, True, False],
+                ],
+                "b": [
+                    [False, False, False, False],
+                    [False, False, False, False],
+                    [False, True, False, False],
+                    [False, False, False, False],
+                ],
+            },
+        ),
+    ],
+)
+def test_bool_matrix_from_rsm(text_cfg, expected_start, expected_final, expected_b):
+    rsm = ECFG.from_cfg(CFG.from_text(text_cfg)).to_rsm()
+    bool_mtx = BooleanMatrix.from_rsm(rsm)
+    assert all(
+        (
+            {bool_mtx.state_to_index[s] for s in bool_mtx.start_states}
+            == expected_start,
+            {bool_mtx.state_to_index[s] for s in bool_mtx.final_states}
+            == expected_final,
+            {k: v.toarray().tolist() for k, v in bool_mtx.bool_matrices.items()}
+            == expected_b,
         )
     )
