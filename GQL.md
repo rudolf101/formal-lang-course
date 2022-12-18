@@ -3,7 +3,7 @@
 ### Описание абстрактного синтаксиса языка
 
 ```
-prog = (EOL? WS? stmt ';' EOL?)+ EOF;
+prog = List<stmt>
 
 stmt =
     bind of var * expr
@@ -38,6 +38,7 @@ expr =
   | Concat of expr * expr        // конкатенация языков
   | Union of expr * expr         // объединение языков
   | Star of expr                 // замыкание языков (звезда Клини)
+  | Smb of expr                  // единичный переход
 
 lambda = Lambda of variables * expr
 ```
